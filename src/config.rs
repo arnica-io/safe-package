@@ -1,3 +1,4 @@
+use std::{fs::File, io::BufReader};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -6,22 +7,22 @@ use serde_json;
 #[derive(Parser)]
 #[command(author, version, about)]
 #[derive(Debug, Default, Serialize, Deserialize)]
-struct Config {
+pub struct Config {
     /// The package manager to execute
     #[arg(short, long)]
-    exe: Option<String>,
+    pub exe: Option<String>,
 
     /// The directory to chroot to
     #[arg(short, long)]
-    root_dir: Option<String>,
+    pub root_dir: Option<String>,
 
     /// A list of enviornment variables that the package manager needs
     #[arg(short, long)]
-    keep_env: Option<Vec<String>>,
+    pub keep_env: Option<Vec<String>>,
 }
 
 impl Config {
-    fn overlay(mut self, other: Config) -> Self {
+    pub fn overlay(mut self, other: Config) -> Self {
         self.keep_env = match self.keep_env {
             Some(mut k) => {
                 match other.keep_env {
@@ -54,7 +55,7 @@ impl Config {
 
 
 
-fn from_filename(fname: &str) -> Option<Config> {
+pub fn from_filename(fname: &str) -> Option<Config> {
      match File::open(fname) {
         Err(_) => return None,
         Ok(f) => {
@@ -70,5 +71,6 @@ fn from_filename(fname: &str) -> Option<Config> {
         },
     };
 }
+
 
 

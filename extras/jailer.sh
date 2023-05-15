@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -x
+#set -x
 
 function handle_path_exe
 {
@@ -8,7 +8,7 @@ function handle_path_exe
     do
         if [ -x $pathdir/$1 ]
         then
-            $0 "$jail" "$pathdir/$1"
+            $0 "$pathdir/$1" "$jail" 
         fi
     done
 }
@@ -16,13 +16,13 @@ function handle_path_exe
 function handle_shebang()
 {
     shebang=`head -1 $1`
-    if ! echo "$shebang" | egrep '^#!'
+    if ! echo "$shebang" | egrep -q '^#!'
     then
         echo "A script that doesn't start with a shebang. That's odd."
         return
     fi
     interpreter=`echo "$shebang" | cut -b2- | awk '{print $1}'`
-    if echo $interpreter | grep "/usr/bin/env" 
+    if echo $interpreter | grep -q "/usr/bin/env" 
     then
         handle_path_exe `echo "$shebang" | cut -b2- | awk '{print $2}'`
     fi
@@ -30,9 +30,9 @@ function handle_shebang()
 
 function exceptional_lib()
 {
-    if echo "$1" | grep libtinfo
+    if echo "$1" | grep -q libtinfo
     then
-        $0 "$jail" /lib/terminfo
+        $0 /lib/terminfo "$jail" 
     fi
 }
 
@@ -66,7 +66,7 @@ b=`basename $src`
 # d is the dirname, /usr/bin of /usr/bin/vim
 d=`dirname $src`
 
-if [ -e "$jail" && ! -d "$jail" ]
+if [ -f "$jail" ]
 then
     echo "$jail already exists but is not a directory, exiting."
 
@@ -82,52 +82,111 @@ fi
 #cd "$jail"
 
 f=`file $src`
-if echo "$f" | grep "symbolic link to"
+
+# Symbolic link to a absolute path
+if echo "$f" | grep -q "symbolic link to /"
 then 
     symlink_src=`echo $f | awk '{print $NF}'`
-    $0 "$jail" "$symlink_src"
-    ln -s $jail/$symlink_src $jail/$src
-elif echo "$f" | grep "script text executable"
+    mkdir -p "$jail/$d"
+    $0 "$symlink_src" "$jail" 
+    echo "Jailing $src"
+    ln -s ${symlink_src} ${jail}${src}
+# Symbolic link to a relative path
+elif echo "$f" | grep -q "symbolic link to"
+then 
+    symlink_src=$d/`echo $f | awk '{print $NF}'`
+    mkdir -p "$jail/$d"
+    $0 "$symlink_src" "$jail" 
+    cd ${jail}/$d
+    echo "Jailing $src"
+    ln -s ${symlink_src} ${b}
+    cd -
+elif echo "$f" | egrep -q "/usr/bin/env [a-zA-Z0-9_-]+ script"
 then
     exceptional_script $b
-    mkdir -p "$jail/$d"
-    ln "$src" "$jail/$src"
+    if [ ! -f "$jail/$src" ]
+    echo "Jailing $src"
+    then
+        mkdir -p "$jail/$d"
+        ln "$src" "$jail/$src"
+    fi
     handle_shebang $src
-elif echo "$f" | grep "executable"
+elif echo "$f" | grep -q "text executable"
+then
+    exceptional_script $b
+    echo "Jailing $src"
+    if [ ! -f "$jail/$src" ]
+    then
+        mkdir -p "$jail/$d"
+        ln "$src" "$jail/$src"
+    fi
+    handle_shebang $src
+elif echo "$f" | grep -q "executable"
 then
     exceptional_exe $b
-    echo jailing $src
-    ln "$src" "$jail/$src"
+    echo Jailing $src
+    if [ ! -f "$jail/$src" ]
+    then
+        mkdir -p "$jail/$d"
+        ln "$src" "$jail/$src"
+    fi
     ldd $src | while read line
     do
-        if echo "$line" | grep "linux.vdso.so.1"
+        if echo "$line" | grep -q "linux.vdso.so.1"
         then
             continue # ignore, provided by the kernel
-        elif echo "$line" | grep "=>"
+        elif echo "$line" | grep -q "=>"
         then
-            $0 "$jail" `awk '{print $3}'` #
+            $0 `echo $line | awk '{print $3}'` "$jail" #
         else
-            $0 "$jail" `awk '{print $1}'` #
+            $0 `echo $line | awk '{print $1}'` "$jail" #
         fi
     done
 
+elif echo "$f" | grep -q "shared object"
+then
+    exceptional_lib $b
+    echo "Jailing $src"
+    if [ ! -f "$jail/$src" ]
+    then
+        mkdir -p "$jail/$d"
+        ln "$src" "$jail/$src"
+    fi
+elif echo "$f" | grep -q "directory"
+then
+    if [ ! -d $jail/$src ]
+    then
+        echo Jailing $src
+        mkdir -p $jail/$src
+        find $src | while read file
+        do
+            $0 $file $jail
+        done
+    fi
+elif echo "$f" | grep -q "character special"
+then
+    echo "$f" | awk '{print $NF}' | 
+else
+    exceptional_file $b
+    echo Jailing $src
+    if [ ! -f "$jail/$src" ]
+    then
+        mkdir -p "$jail/$d"
+        ln "$src" "$jail/$src"
+    fi
+fi 
+
+if [ -f "$src" ]
+then
     if [ -d /usr/share/$b ]
     then
         echo Jailing /usr/share/$b
-        $0 "$jail" "/usr/share/$b"
+        $0 "/usr/share/$b" "$jail" 
     fi
+
     if [ -d /etc/$b ]
     then
         echo Jailing /etc/$b
-        $0 "$jail" "/etc/$b"
-    elif echo "$f" | grep "shared object"
-    then
-        exceptional_lib $b
-        mkdir -p "$jail/$d"
-        ln $src $jail/$src
-    else
-        exceptional_file $b
-        mkdir -p "$jail/$d"
-        ln $src $jail/$src
+        $0 "/etc/$b" "$jail" 
     fi
 fi

